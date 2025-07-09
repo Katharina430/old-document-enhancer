@@ -258,7 +258,7 @@
                 <div class="upload-text">
                     이미지(JPG, PNG) 또는 PDF를 여기에 드래그하거나 클릭하여 업로드하세요
                 </div>
-                <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                <button class="upload-btn" onclick="handleUploadButtonClick()">
                     이미지/PDF 선택
                 </button>
             </div>
@@ -328,29 +328,44 @@
         // 드래그 앤 드롭
         uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             uploadArea.classList.add('dragover');
         });
 
-        uploadArea.addEventListener('dragleave', () => {
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             uploadArea.classList.remove('dragover');
         });
 
         uploadArea.addEventListener('drop', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             uploadArea.classList.remove('dragover');
             const files = e.dataTransfer.files;
+            console.log('드롭된 파일들:', files); // 디버깅용
             handleFiles(files);
         });
 
-        uploadArea.addEventListener('click', () => {
+        uploadArea.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             fileInput.click();
         });
 
         fileInput.addEventListener('change', (e) => {
+            console.log('파일 선택됨:', e.target.files); // 디버깅용
             handleFiles(e.target.files);
         });
 
         function handleFiles(files) {
+            console.log('handleFiles 호출됨:', files); // 디버깅용
+            
+            if (!files || files.length === 0) {
+                console.log('파일이 없음');
+                return;
+            }
+
             uploadedImages = [];
             processedImages = [];
             imageResults.innerHTML = '<div class="loading">파일 처리 중...</div>';
@@ -360,15 +375,27 @@
             let totalFiles = 0;
             let processedFiles = 0;
 
-            for (let file of files) {
+            // 파일 배열로 변환
+            const fileArray = Array.from(files);
+            console.log('처리할 파일들:', fileArray);
+
+            for (let file of fileArray) {
+                console.log('파일 처리 중:', file.name, file.type);
+                
                 if (file.type.startsWith('image/')) {
                     totalFiles++;
                     const reader = new FileReader();
                     reader.onload = (e) => {
+                        console.log('이미지 로드 완료:', file.name);
                         uploadedImages.push({
                             name: file.name,
                             data: e.target.result
                         });
+                        processedFiles++;
+                        checkAllFilesProcessed(totalFiles, processedFiles);
+                    };
+                    reader.onerror = (e) => {
+                        console.error('이미지 로드 실패:', e);
                         processedFiles++;
                         checkAllFilesProcessed(totalFiles, processedFiles);
                     };
@@ -379,6 +406,8 @@
                         processedFiles++;
                         checkAllFilesProcessed(totalFiles, processedFiles);
                     });
+                } else {
+                    console.log('지원하지 않는 파일 형식:', file.type);
                 }
             }
 
@@ -387,10 +416,18 @@
             }
         }
 
+        function handleUploadButtonClick() {
+            console.log('업로드 버튼 클릭됨');
+            fileInput.value = ''; // 기존 선택 초기화
+            fileInput.click();
+        }
+
         function checkAllFilesProcessed(total, processed) {
-            if (processed === total) {
+            console.log(`파일 처리 진행: ${processed}/${total}`);
+            if (processed === total && total > 0) {
                 processBtn.disabled = false;
                 displayUploadedImages();
+                console.log('모든 파일 처리 완료');
             }
         }
 
