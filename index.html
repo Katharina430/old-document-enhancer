@@ -289,8 +289,8 @@
 
         <div class="batch-controls">
             <button class="process-btn" id="processBtn" disabled>이미지 처리</button>
-            <button class="process-btn" id="resetBtn" onclick="resetSettings()">설정 초기화</button>
-            <button class="process-btn" id="downloadAllBtn" onclick="downloadAll()" style="display: none;">전체 다운로드</button>
+            <button class="process-btn" id="resetBtn">설정 초기화</button>
+            <button class="process-btn" id="downloadAllBtn" style="display: none;">전체 다운로드</button>
             <div class="info-text">
                 * 여러 이미지/PDF를 한 번에 업로드하여 일괄 처리할 수 있습니다<br>
                 * PDF는 각 페이지별로 처리됩니다
@@ -398,11 +398,16 @@
                     };
                     reader.readAsDataURL(file);
                 } else if (file.type === 'application/pdf') {
-                    totalFiles++;
-                    processPDF(file, () => {
-                        processedFiles++;
-                        checkAllFilesProcessed(totalFiles, processedFiles);
-                    });
+                    // PDF 처리는 PDF.js가 로드된 경우에만
+                    if (typeof pdfjsLib !== 'undefined') {
+                        totalFiles++;
+                        processPDF(file, () => {
+                            processedFiles++;
+                            checkAllFilesProcessed(totalFiles, processedFiles);
+                        });
+                    } else {
+                        console.log('PDF 처리를 위해서는 PDF.js 라이브러리가 필요합니다.');
+                    }
                 } else {
                     console.log('지원하지 않는 파일 형식:', file.type);
                 }
@@ -597,22 +602,26 @@
             link.click();
         }
 
-        function downloadAll() {
-            processedImages.forEach(image => {
-                downloadImage(image.data, image.name);
-            });
+        function resetSettings() {
+            if (brightness && contrast && threshold && gamma) {
+                brightness.value = 0;
+                contrast.value = 100;
+                threshold.value = 128;
+                gamma.value = 1.0;
+                
+                document.getElementById('brightnessValue').textContent = '0';
+                document.getElementById('contrastValue').textContent = '100';
+                document.getElementById('thresholdValue').textContent = '128';
+                document.getElementById('gammaValue').textContent = '1.0';
+            }
         }
 
-        function resetSettings() {
-            brightness.value = 0;
-            contrast.value = 100;
-            threshold.value = 128;
-            gamma.value = 1.0;
-            
-            document.getElementById('brightnessValue').textContent = '0';
-            document.getElementById('contrastValue').textContent = '100';
-            document.getElementById('thresholdValue').textContent = '128';
-            document.getElementById('gammaValue').textContent = '1.0';
+        function downloadAll() {
+            if (processedImages && processedImages.length > 0) {
+                processedImages.forEach(image => {
+                    downloadImage(image.data, image.name);
+                });
+            }
         }
 
         processBtn.addEventListener('click', processImages);
