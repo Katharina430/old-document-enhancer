@@ -433,6 +433,12 @@
 
         async function processPDF(file, callback) {
             try {
+                if (typeof pdfjsLib === 'undefined') {
+                    console.error('PDF.js 라이브러리가 로드되지 않았습니다.');
+                    callback();
+                    return;
+                }
+
                 const arrayBuffer = await file.arrayBuffer();
                 const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
                 
