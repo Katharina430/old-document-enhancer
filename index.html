@@ -307,18 +307,15 @@
         let uploadedImages = [];
         let processedImages = [];
 
-        // 파일 업로드 관련
-        const fileInput = document.getElementById('fileInput');
-        const uploadArea = document.getElementById('uploadArea');
-        const processBtn = document.getElementById('processBtn');
-        const downloadAllBtn = document.getElementById('downloadAllBtn');
-        const imageResults = document.getElementById('imageResults');
+        // 파일 업로드 관련 변수들
+        let fileInput, uploadArea, processBtn, downloadAllBtn, imageResults;
+        let brightness, contrast, threshold, gamma;
 
-        // 슬라이더 값 표시
-        const brightness = document.getElementById('brightness');
-        const contrast = document.getElementById('contrast');
-        const threshold = document.getElementById('threshold');
-        const gamma = document.getElementById('gamma');
+        function handleUploadButtonClick() {
+            console.log('업로드 버튼 클릭됨');
+            fileInput.value = ''; // 기존 선택 초기화
+            fileInput.click();
+        }
 
         brightness.oninput = () => document.getElementById('brightnessValue').textContent = brightness.value;
         contrast.oninput = () => document.getElementById('contrastValue').textContent = contrast.value;
@@ -418,8 +415,12 @@
 
         function handleUploadButtonClick() {
             console.log('업로드 버튼 클릭됨');
-            fileInput.value = ''; // 기존 선택 초기화
-            fileInput.click();
+            if (fileInput) {
+                fileInput.value = ''; // 기존 선택 초기화
+                fileInput.click();
+            } else {
+                console.error('fileInput이 초기화되지 않았습니다.');
+            }
         }
 
         function checkAllFilesProcessed(total, processed) {
