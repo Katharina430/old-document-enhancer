@@ -680,15 +680,25 @@
 
         // 설정 초기화
         function resetSettings() {
-            brightness.value = 0;
-            contrast.value = 100;
-            threshold.value = 128;
-            gamma.value = 1.0;
+            console.log('설정 초기화 시작');
             
-            document.getElementById('brightnessValue').textContent = '0';
-            document.getElementById('contrastValue').textContent = '100';
-            document.getElementById('thresholdValue').textContent = '128';
-            document.getElementById('gammaValue').textContent = '1.0';
+            if (brightness) brightness.value = 0;
+            if (contrast) contrast.value = 100;
+            if (threshold) threshold.value = 128;
+            if (gamma) gamma.value = 1.0;
+            
+            // 화면 표시 업데이트
+            const brightnessDisplay = document.getElementById('brightnessValue');
+            const contrastDisplay = document.getElementById('contrastValue');
+            const thresholdDisplay = document.getElementById('thresholdValue');
+            const gammaDisplay = document.getElementById('gammaValue');
+            
+            if (brightnessDisplay) brightnessDisplay.textContent = '0';
+            if (contrastDisplay) contrastDisplay.textContent = '100';
+            if (thresholdDisplay) thresholdDisplay.textContent = '128';
+            if (gammaDisplay) gammaDisplay.textContent = '1.0';
+            
+            console.log('설정 초기화 완료');
         }
 
         // 페이지 로드 완료 후 초기화
