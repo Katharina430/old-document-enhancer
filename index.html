@@ -254,11 +254,34 @@
     <div class="container">
         <h1>📚 고서 이미지 처리 도구</h1>
         
-        <div id="statusDiv" class="status loading">
-            라이브러리 로딩 중...
-        </div>
-        
         <div class="upload-section">
+            <div class="recommendations" style="margin-bottom: 20px; padding: 20px; background: #f0f8ff; border-radius: 15px; border-left: 5px solid #667eea;">
+                <h3 style="margin: 0 0 15px 0; color: #333; font-size: 1.2em;">📋 추천 설정값</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div style="background: #fff; padding: 15px; border-radius: 10px; border: 1px solid #e0e0e0;">
+                        <h4 style="margin: 0 0 10px 0; color: #8B4513; font-size: 1.1em;">📜 누런 배경 고서</h4>
+                        <div style="font-size: 0.9em; line-height: 1.4;">
+                            <strong>밝기:</strong> 10~20<br>
+                            <strong>대비:</strong> 150~180%<br>
+                            <strong>임계값:</strong> 120~140<br>
+                            <strong>감마:</strong> 1.2~1.4
+                        </div>
+                    </div>
+                    <div style="background: #fff; padding: 15px; border-radius: 10px; border: 1px solid #e0e0e0;">
+                        <h4 style="margin: 0 0 10px 0; color: #696969; font-size: 1.1em;">📄 회색 배경 고서</h4>
+                        <div style="font-size: 0.9em; line-height: 1.4;">
+                            <strong>밝기:</strong> 20~40<br>
+                            <strong>대비:</strong> 160~200%<br>
+                            <strong>임계값:</strong> 140~160<br>
+                            <strong>감마:</strong> 1.0~1.3
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 15px; font-size: 0.85em; color: #666; font-style: italic;">
+                    💡 팁: 임계값이 가장 중요해요! 배경과 글자가 깔끔하게 분리될 때까지 조정해보세요.
+                </div>
+            </div>
+            
             <div class="upload-area" id="uploadArea">
                 <div class="upload-text">
                     이미지(JPG, PNG) 또는 PDF를 여기에 드래그하거나 클릭하여 업로드하세요
@@ -312,7 +335,7 @@
         let pdfLibReady = false;
 
         // DOM 요소들
-        let fileInput, uploadArea, uploadButton, processBtn, downloadAllBtn, imageResults, resetBtn, statusDiv;
+        let fileInput, uploadArea, uploadButton, processBtn, downloadAllBtn, imageResults, resetBtn;
         let brightness, contrast, threshold, gamma;
 
         // PDF.js 동적 로딩
@@ -350,7 +373,6 @@
             downloadAllBtn = document.getElementById('downloadAllBtn');
             imageResults = document.getElementById('imageResults');
             resetBtn = document.getElementById('resetBtn');
-            statusDiv = document.getElementById('statusDiv');
             
             brightness = document.getElementById('brightness');
             contrast = document.getElementById('contrast');
@@ -360,14 +382,9 @@
             // PDF.js 로딩 시도
             try {
                 await loadPDFJS();
-                statusDiv.className = 'status ready';
-                statusDiv.textContent = pdfLibReady ? 
-                    '✅ 준비 완료 (이미지 + PDF 처리 가능)' : 
-                    '⚠️ 준비 완료 (이미지만 처리 가능)';
+                console.log('초기화 완료 - PDF 처리:', pdfLibReady ? '가능' : '불가능');
             } catch (error) {
                 console.error('초기화 오류:', error);
-                statusDiv.className = 'status ready';
-                statusDiv.textContent = '⚠️ 준비 완료 (이미지만 처리 가능)';
             }
 
             // 이벤트 리스너 설정
