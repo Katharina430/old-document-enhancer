@@ -38,6 +38,29 @@
             background-clip: text;
         }
 
+        .status {
+            text-align: center;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+
+        .status.loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status.ready {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
         .upload-section {
             text-align: center;
             margin-bottom: 30px;
@@ -70,10 +93,6 @@
             margin-bottom: 15px;
         }
 
-        .file-input {
-            display: none;
-        }
-
         .upload-btn {
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
@@ -88,6 +107,12 @@
         .upload-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .upload-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
         }
 
         .controls {
@@ -128,16 +153,6 @@
             border-radius: 50%;
             background: linear-gradient(135deg, #667eea, #764ba2);
             cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-
-        .slider::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            cursor: pointer;
-            border: none;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
 
@@ -224,28 +239,14 @@
             font-style: italic;
         }
 
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: #667eea;
-            font-size: 1.1em;
-        }
-
-        .loading::after {
-            content: "";
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-left: 10px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        @media (max-width: 768px) {
+            .image-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -253,16 +254,20 @@
     <div class="container">
         <h1>📚 고서 이미지 처리 도구</h1>
         
+        <div id="statusDiv" class="status loading">
+            라이브러리 로딩 중...
+        </div>
+        
         <div class="upload-section">
             <div class="upload-area" id="uploadArea">
                 <div class="upload-text">
                     이미지(JPG, PNG) 또는 PDF를 여기에 드래그하거나 클릭하여 업로드하세요
                 </div>
-                <button class="upload-btn" id="uploadButton">
+                <button class="upload-btn" id="uploadButton" disabled>
                     이미지/PDF 선택
                 </button>
             </div>
-            <input type="file" id="fileInput" class="file-input" accept="image/*,application/pdf" multiple>
+            <input type="file" id="fileInput" style="display: none;" accept="image/*,application/pdf" multiple>
         </div>
 
         <div class="controls">
@@ -289,7 +294,7 @@
 
         <div class="batch-controls">
             <button class="process-btn" id="processBtn" disabled>이미지 처리</button>
-            <button class="process-btn" id="resetBtn">설정 초기화</button>
+            <button class="process-btn" id="resetBtn" disabled>설정 초기화</button>
             <button class="process-btn" id="downloadAllBtn" style="display: none;">전체 다운로드</button>
             <div class="info-text">
                 * 여러 이미지/PDF를 한 번에 업로드하여 일괄 처리할 수 있습니다<br>
@@ -301,112 +306,173 @@
     </div>
 
     <script>
-        // PDF.js 워커 설정
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        
+        // 전역 변수
         let uploadedImages = [];
         let processedImages = [];
+        let pdfLibReady = false;
 
-        // 파일 업로드 관련 변수들
-        let fileInput, uploadArea, processBtn, downloadAllBtn, imageResults;
+        // DOM 요소들
+        let fileInput, uploadArea, uploadButton, processBtn, downloadAllBtn, imageResults, resetBtn, statusDiv;
         let brightness, contrast, threshold, gamma;
 
-        function handleUploadButtonClick() {
-            console.log('업로드 버튼 클릭됨');
-            fileInput.value = ''; // 기존 선택 초기화
-            fileInput.click();
+        // PDF.js 동적 로딩
+        function loadPDFJS() {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+                script.onload = () => {
+                    console.log('PDF.js 라이브러리 로드 성공');
+                    if (window.pdfjsLib) {
+                        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                        pdfLibReady = true;
+                        resolve();
+                    } else {
+                        reject(new Error('PDF.js 객체를 찾을 수 없습니다'));
+                    }
+                };
+                script.onerror = () => {
+                    console.warn('PDF.js 로드 실패 - 이미지만 처리 가능합니다');
+                    resolve(); // PDF 없이도 진행
+                };
+                document.head.appendChild(script);
+            });
         }
 
-        brightness.oninput = () => document.getElementById('brightnessValue').textContent = brightness.value;
-        contrast.oninput = () => document.getElementById('contrastValue').textContent = contrast.value;
-        threshold.oninput = () => document.getElementById('thresholdValue').textContent = threshold.value;
-        gamma.oninput = () => document.getElementById('gammaValue').textContent = gamma.value;
-
-        // 드래그 앤 드롭
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            uploadArea.classList.add('dragover');
-        });
-
-        uploadArea.addEventListener('dragleave', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            uploadArea.classList.remove('dragover');
-        });
-
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            uploadArea.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            console.log('드롭된 파일들:', files); // 디버깅용
-            handleFiles(files);
-        });
-
-        uploadArea.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            fileInput.click();
-        });
-
-        fileInput.addEventListener('change', (e) => {
-            console.log('파일 선택됨:', e.target.files); // 디버깅용
-            handleFiles(e.target.files);
-        });
-
-        function handleFiles(files) {
-            console.log('handleFiles 호출됨:', files); // 디버깅용
+        // 초기화 함수
+        async function initializeApp() {
+            console.log('앱 초기화 시작');
             
-            if (!files || files.length === 0) {
-                console.log('파일이 없음');
-                return;
+            // DOM 요소 가져오기
+            fileInput = document.getElementById('fileInput');
+            uploadArea = document.getElementById('uploadArea');
+            uploadButton = document.getElementById('uploadButton');
+            processBtn = document.getElementById('processBtn');
+            downloadAllBtn = document.getElementById('downloadAllBtn');
+            imageResults = document.getElementById('imageResults');
+            resetBtn = document.getElementById('resetBtn');
+            statusDiv = document.getElementById('statusDiv');
+            
+            brightness = document.getElementById('brightness');
+            contrast = document.getElementById('contrast');
+            threshold = document.getElementById('threshold');
+            gamma = document.getElementById('gamma');
+
+            // PDF.js 로딩 시도
+            try {
+                await loadPDFJS();
+                statusDiv.className = 'status ready';
+                statusDiv.textContent = pdfLibReady ? 
+                    '✅ 준비 완료 (이미지 + PDF 처리 가능)' : 
+                    '⚠️ 준비 완료 (이미지만 처리 가능)';
+            } catch (error) {
+                console.error('초기화 오류:', error);
+                statusDiv.className = 'status ready';
+                statusDiv.textContent = '⚠️ 준비 완료 (이미지만 처리 가능)';
             }
 
+            // 이벤트 리스너 설정
+            setupEventListeners();
+            
+            // 버튼 활성화
+            uploadButton.disabled = false;
+            resetBtn.disabled = false;
+            
+            console.log('앱 초기화 완료');
+        }
+
+        function setupEventListeners() {
+            // 슬라이더 값 표시
+            brightness.oninput = () => document.getElementById('brightnessValue').textContent = brightness.value;
+            contrast.oninput = () => document.getElementById('contrastValue').textContent = contrast.value;
+            threshold.oninput = () => document.getElementById('thresholdValue').textContent = threshold.value;
+            gamma.oninput = () => document.getElementById('gammaValue').textContent = gamma.value;
+
+            // 업로드 버튼
+            uploadButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                console.log('업로드 버튼 클릭');
+                fileInput.value = '';
+                fileInput.click();
+            });
+
+            // 파일 선택
+            fileInput.addEventListener('change', (e) => {
+                console.log('파일 선택됨:', e.target.files);
+                if (e.target.files.length > 0) {
+                    handleFiles(e.target.files);
+                }
+            });
+
+            // 드래그 앤 드롭 (중요: 기본 동작 완전 차단)
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, false);
+                
+                document.body.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, false);
+            });
+
+            uploadArea.addEventListener('dragenter', () => {
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', (e) => {
+                if (!uploadArea.contains(e.relatedTarget)) {
+                    uploadArea.classList.remove('dragover');
+                }
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                uploadArea.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                console.log('드롭된 파일:', files);
+                if (files.length > 0) {
+                    handleFiles(files);
+                }
+            });
+
+            // 다른 버튼들
+            processBtn.addEventListener('click', processImages);
+            resetBtn.addEventListener('click', resetSettings);
+            downloadAllBtn.addEventListener('click', downloadAll);
+        }
+
+        // 파일 처리
+        async function handleFiles(files) {
+            console.log('파일 처리 시작:', files.length, '개 파일');
+            
             uploadedImages = [];
             processedImages = [];
-            imageResults.innerHTML = '<div class="loading">파일 처리 중...</div>';
+            imageResults.innerHTML = '<div style="text-align: center; padding: 20px; color: #667eea;">파일 처리 중...</div>';
             downloadAllBtn.style.display = 'none';
             processBtn.disabled = true;
 
             let totalFiles = 0;
             let processedFiles = 0;
 
-            // 파일 배열로 변환
-            const fileArray = Array.from(files);
-            console.log('처리할 파일들:', fileArray);
-
-            for (let file of fileArray) {
-                console.log('파일 처리 중:', file.name, file.type);
+            for (let file of files) {
+                console.log('파일 처리:', file.name, file.type);
                 
                 if (file.type.startsWith('image/')) {
                     totalFiles++;
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        console.log('이미지 로드 완료:', file.name);
-                        uploadedImages.push({
-                            name: file.name,
-                            data: e.target.result
-                        });
+                    processImageFile(file, () => {
                         processedFiles++;
                         checkAllFilesProcessed(totalFiles, processedFiles);
-                    };
-                    reader.onerror = (e) => {
-                        console.error('이미지 로드 실패:', e);
-                        processedFiles++;
-                        checkAllFilesProcessed(totalFiles, processedFiles);
-                    };
-                    reader.readAsDataURL(file);
+                    });
                 } else if (file.type === 'application/pdf') {
-                    // PDF 처리는 PDF.js가 로드된 경우에만
-                    if (typeof pdfjsLib !== 'undefined') {
+                    if (pdfLibReady) {
                         totalFiles++;
-                        processPDF(file, () => {
+                        processPDFFile(file, () => {
                             processedFiles++;
                             checkAllFilesProcessed(totalFiles, processedFiles);
                         });
                     } else {
-                        console.log('PDF 처리를 위해서는 PDF.js 라이브러리가 필요합니다.');
+                        console.warn('PDF 처리 불가 - PDF.js가 로드되지 않았습니다');
+                        alert('PDF 처리를 위해 페이지를 새로고침해주세요.');
                     }
                 } else {
                     console.log('지원하지 않는 파일 형식:', file.type);
@@ -414,43 +480,37 @@
             }
 
             if (totalFiles === 0) {
-                imageResults.innerHTML = '<div style="text-align: center; color: red;">지원되는 파일 형식이 없습니다. (JPG, PNG, PDF만 지원)</div>';
+                imageResults.innerHTML = '<div style="text-align: center; color: red;">지원되는 파일이 없습니다. (JPG, PNG, PDF만 지원)</div>';
             }
         }
 
-        function handleUploadButtonClick() {
-            console.log('업로드 버튼 클릭됨');
-            if (fileInput) {
-                fileInput.value = ''; // 기존 선택 초기화
-                fileInput.click();
-            } else {
-                console.error('fileInput이 초기화되지 않았습니다.');
-            }
+        // 이미지 파일 처리
+        function processImageFile(file, callback) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                uploadedImages.push({
+                    name: file.name,
+                    data: e.target.result
+                });
+                console.log('이미지 로드 완료:', file.name);
+                callback();
+            };
+            reader.onerror = (e) => {
+                console.error('이미지 로드 실패:', e);
+                callback();
+            };
+            reader.readAsDataURL(file);
         }
 
-        function checkAllFilesProcessed(total, processed) {
-            console.log(`파일 처리 진행: ${processed}/${total}`);
-            if (processed === total && total > 0) {
-                processBtn.disabled = false;
-                displayUploadedImages();
-                console.log('모든 파일 처리 완료');
-            }
-        }
-
-        async function processPDF(file, callback) {
+        // PDF 파일 처리
+        async function processPDFFile(file, callback) {
             try {
-                if (typeof pdfjsLib === 'undefined') {
-                    console.error('PDF.js 라이브러리가 로드되지 않았습니다.');
-                    callback();
-                    return;
-                }
-
                 const arrayBuffer = await file.arrayBuffer();
-                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                const pdf = await window.pdfjsLib.getDocument(arrayBuffer).promise;
                 
                 for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                     const page = await pdf.getPage(pageNum);
-                    const viewport = page.getViewport({ scale: 2.0 }); // 높은 해상도를 위해 스케일 2.0 사용
+                    const viewport = page.getViewport({ scale: 2.0 });
                     
                     const canvas = document.createElement('canvas');
                     const context = canvas.getContext('2d');
@@ -468,14 +528,26 @@
                         data: imageData
                     });
                 }
+                console.log('PDF 처리 완료:', file.name);
                 callback();
             } catch (error) {
-                console.error('PDF 처리 중 오류:', error);
-                imageResults.innerHTML += `<div style="color: red;">PDF 처리 중 오류가 발생했습니다: ${file.name}</div>`;
+                console.error('PDF 처리 오류:', error);
+                alert(`PDF 처리 중 오류: ${file.name}`);
                 callback();
             }
         }
 
+        // 모든 파일 처리 완료 확인
+        function checkAllFilesProcessed(total, processed) {
+            console.log(`파일 처리 진행: ${processed}/${total}`);
+            if (processed === total && total > 0) {
+                processBtn.disabled = false;
+                displayUploadedImages();
+                console.log('모든 파일 처리 완료');
+            }
+        }
+
+        // 업로드된 이미지 표시
         function displayUploadedImages() {
             imageResults.innerHTML = '<h2 style="text-align: center; margin-bottom: 20px;">업로드된 파일들</h2>';
             
@@ -490,6 +562,7 @@
             });
         }
 
+        // 이미지 처리
         function processImages() {
             if (uploadedImages.length === 0) return;
 
@@ -508,20 +581,16 @@
                     canvas.width = img.width;
                     canvas.height = img.height;
                     
-                    // 원본 이미지 그리기
                     ctx.drawImage(img, 0, 0);
                     
-                    // 이미지 데이터 가져오기
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                     const data = imageData.data;
                     
-                    // 설정값 가져오기
                     const brightnessValue = parseInt(brightness.value);
                     const contrastValue = parseInt(contrast.value) / 100;
                     const thresholdValue = parseInt(threshold.value);
                     const gammaValue = parseFloat(gamma.value);
                     
-                    // 픽셀 처리
                     for (let i = 0; i < data.length; i += 4) {
                         let r = data[i];
                         let g = data[i + 1];
@@ -538,32 +607,30 @@
                         b = ((b - 128) * contrastValue) + 128;
                         
                         // 감마 조정
-                        r = Math.pow(r / 255, gammaValue) * 255;
-                        g = Math.pow(g / 255, gammaValue) * 255;
-                        b = Math.pow(b / 255, gammaValue) * 255;
+                        r = Math.pow(Math.max(0, Math.min(255, r)) / 255, gammaValue) * 255;
+                        g = Math.pow(Math.max(0, Math.min(255, g)) / 255, gammaValue) * 255;
+                        b = Math.pow(Math.max(0, Math.min(255, b)) / 255, gammaValue) * 255;
                         
                         // 그레이스케일 변환
                         const gray = (r * 0.299 + g * 0.587 + b * 0.114);
                         
-                        // 임계값 적용 (배경을 흰색으로, 글자를 검정으로)
+                        // 임계값 적용
                         const finalValue = gray > thresholdValue ? 255 : 0;
                         
-                        data[i] = finalValue;     // R
-                        data[i + 1] = finalValue; // G
-                        data[i + 2] = finalValue; // B
+                        data[i] = finalValue;
+                        data[i + 1] = finalValue;
+                        data[i + 2] = finalValue;
                     }
                     
-                    // 처리된 이미지 데이터 적용
                     ctx.putImageData(imageData, 0, 0);
-                    
-                    // 결과 표시
                     const processedData = canvas.toDataURL();
+                    
                     processedImages.push({
                         name: image.name,
                         data: processedData
                     });
                     
-                    // 원본과 처리된 이미지 표시
+                    // 결과 표시
                     const originalBox = document.createElement('div');
                     originalBox.className = 'image-box';
                     originalBox.innerHTML = `
@@ -595,25 +662,12 @@
             });
         }
 
+        // 다운로드 함수들
         function downloadImage(dataUrl, filename) {
             const link = document.createElement('a');
             link.download = `processed_${filename}`;
             link.href = dataUrl;
             link.click();
-        }
-
-        function resetSettings() {
-            if (brightness && contrast && threshold && gamma) {
-                brightness.value = 0;
-                contrast.value = 100;
-                threshold.value = 128;
-                gamma.value = 1.0;
-                
-                document.getElementById('brightnessValue').textContent = '0';
-                document.getElementById('contrastValue').textContent = '100';
-                document.getElementById('thresholdValue').textContent = '128';
-                document.getElementById('gammaValue').textContent = '1.0';
-            }
         }
 
         function downloadAll() {
@@ -624,7 +678,25 @@
             }
         }
 
-        processBtn.addEventListener('click', processImages);
+        // 설정 초기화
+        function resetSettings() {
+            brightness.value = 0;
+            contrast.value = 100;
+            threshold.value = 128;
+            gamma.value = 1.0;
+            
+            document.getElementById('brightnessValue').textContent = '0';
+            document.getElementById('contrastValue').textContent = '100';
+            document.getElementById('thresholdValue').textContent = '128';
+            document.getElementById('gammaValue').textContent = '1.0';
+        }
+
+        // 페이지 로드 완료 후 초기화
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeApp);
+        } else {
+            initializeApp();
+        }
     </script>
 </body>
 </html>
